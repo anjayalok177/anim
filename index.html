@@ -173,10 +173,10 @@
             document.getElementById('player-title').innerText = `${jikanTitle} - Episode ${episodeNumber}`;
             
             try {
-                // Bersihkan judul dari karakter aneh dan ambil 2 kata pertama
-                const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 2).join(' ').toLowerCase();
+                // UBAH: Ambil KATA PERTAMA saja dari judul untuk memperlebar kemungkinan ketemu
+                const cleanTitle = jikanTitle.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
                 
-                // TAHAP 1: PENCARIAN (Berdasarkan image_11.png -> /anime/search/:keyword)
+                // TAHAP 1: PENCARIAN (Berdasarkan endpoint /anime/search/:keyword)
                 statusText.innerText = "Mencari data anime...";
                 const searchEndpoint = `${BASE_API}/anime/search/${encodeURIComponent(cleanTitle)}`;
                 updateLog(`[1] Request: /anime/search/${cleanTitle}`);
@@ -185,18 +185,24 @@
                 if (!searchRes.ok) throw new Error(`Pencarian gagal: HTTP ${searchRes.status}`);
                 
                 const searchData = await searchRes.json();
-                const searchResults = searchData.data || searchData.result || searchData;
-
+                
+                // Cari di mana letak Array datanya (antisipasi struktur JSON Sankanime)
+                let searchResults = searchData.data || searchData.result || searchData;
+                if (searchResults && searchResults.search) searchResults = searchResults.search; 
+                
                 if (!searchResults || !Array.isArray(searchResults) || searchResults.length === 0) {
+                    // Tampilkan balasan mentah dari API jika kosong
+                    const rawJson = JSON.stringify(searchData).substring(0, 100);
+                    updateLog(`[DEBUG] JSON API: ${rawJson}`);
                     throw new Error(`Data anime "${cleanTitle}" tidak ditemukan.`);
                 }
 
-                // Ambil slug/endpoint dari hasil pertama
+                // Ambil slug dari hasil pencarian pertama
                 const animeIdOrSlug = searchResults[0].slug || searchResults[0].endpoint || searchResults[0].id;
-                if (!animeIdOrSlug) throw new Error("Format data pencarian tidak dikenali.");
-                updateLog(`[1] Berhasil. Slug: ${animeIdOrSlug}`);
+                if (!animeIdOrSlug) throw new Error("Format slug/id pada hasil pencarian tidak dikenali.");
+                updateLog(`[1] Berhasil. Slug Anime: ${animeIdOrSlug}`);
 
-                // TAHAP 2: DETAIL ANIME (Berdasarkan image_9.png -> /anime/anime/:slug)
+                // TAHAP 2: DETAIL ANIME (Berdasarkan endpoint /anime/anime/:slug)
                 statusText.innerText = `Mengambil data episode ${episodeNumber}...`;
                 const detailEndpoint = `${BASE_API}/anime/anime/${animeIdOrSlug}`;
                 updateLog(`[2] Request: /anime/anime/${animeIdOrSlug}`);
@@ -208,7 +214,7 @@
                 const animeDetail = detailData.data || detailData.result || detailData;
                 
                 const episodeList = animeDetail.episode_list || animeDetail.episodes || [];
-                if (episodeList.length === 0) throw new Error("Daftar episode kosong.");
+                if (episodeList.length === 0) throw new Error("Daftar episode dari Sankanime kosong.");
                 
                 // Cari episode yang sesuai angkanya
                 const targetEps = episodeList.find(eps => {
@@ -217,11 +223,11 @@
                     return match && parseInt(match[1]) === parseInt(episodeNumber);
                 });
 
-                if (!targetEps) throw new Error(`Episode ${episodeNumber} belum tersedia.`);
+                if (!targetEps) throw new Error(`Episode ${episodeNumber} belum tersedia di Sankanime.`);
                 const epsSlug = targetEps.slug || targetEps.endpoint || targetEps.id;
                 updateLog(`[2] Berhasil. Slug Eps: ${epsSlug}`);
 
-                // TAHAP 3: LINK STREAMING (Berdasarkan image_11.png -> /anime/episode/:slug)
+                // TAHAP 3: LINK STREAMING (Berdasarkan endpoint /anime/episode/:slug)
                 statusText.innerText = "Menyiapkan pemutar video...";
                 const streamEndpoint = `${BASE_API}/anime/episode/${epsSlug}`;
                 updateLog(`[3] Request: /anime/episode/${epsSlug}`);
@@ -234,9 +240,14 @@
 
                 // Mencari URL Iframe/Embed di dalam response JSON
                 let embedUrl = streamObj.stream_url || streamObj.iframe_url || streamObj.embed || 
-                               (streamObj.server && streamObj.server.length > 0 ? streamObj.server[0].url : null);
+                               (streamObj.server && streamObj.server.length > 0 ? (streamObj.server[0].url || streamObj.server[0].iframe) : null) ||
+                               streamObj.url;
 
-                if (!embedUrl) throw new Error("Tidak ada link video dari server.");
+                if (!embedUrl) {
+                    const rawStream = JSON.stringify(streamObj).substring(0, 100);
+                    updateLog(`[DEBUG Stream]: ${rawStream}`);
+                    throw new Error("Tidak ada link video (embed) dari server.");
+                }
                 updateLog(`[3] Selesai. Merender Iframe.`);
 
                 // TAHAP 4: TAMPILKAN VIDEO
@@ -248,7 +259,6 @@
 
             } catch (error) {
                 console.error(error);
-                document.querySelector('.loader').classList.add('hidden');
                 statusText.innerText = "❌ Terjadi Kesalahan";
                 statusText.classList.replace("text-blue-200", "text-red-400");
                 updateLog(`ERROR: ${error.message}`, true);
