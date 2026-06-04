@@ -165,17 +165,29 @@
             document.getElementById('player-title').innerText = `${jikanTitle} - Episode ${episodeNumber}`;
             
             try {
-                // Pastikan API Sankanime di bawah ini sudah benar URL-nya
-                const BASE_API = 'https://api.sankavollerei.com'; // Sesuaikan jika ada perubahan URL base
+                const BASE_API = 'https://api.sankavollerei.com';
                 const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 2).join(' ');
                 
-                // TAHAP 1: PENCARIAN (Melalui Proxy Internal Vercel)
                 statusText.innerText = "Mencari data anime...";
                 const rawSearchUrl = `${BASE_API}/anime/otakudesu/search?q=${encodeURIComponent(cleanTitle)}`;
                 updateLog(`[1] Request: ${rawSearchUrl}`);
                 
+                // --- BAGIAN DETEKTOR ERROR ---
                 const searchRes = await fetch(`/api/proxy?url=${encodeURIComponent(rawSearchUrl)}`);
-                if (!searchRes.ok) throw new Error("Gagal mengambil data pencarian dari Proxy.");
+                
+                if (!searchRes.ok) {
+                    // Tangkap pesan error dari Vercel
+                    let errorDetail = "";
+                    try {
+                        const errJson = await searchRes.json();
+                        errorDetail = errJson.error || "Tanpa pesan";
+                    } catch(e) {
+                        errorDetail = "Bukan format JSON";
+                    }
+                    // Lempar status HTTP aslinya (misal: 404, 403, 500)
+                    throw new Error(`HTTP Status ${searchRes.status} | Detail: ${errorDetail}`);
+                }
+                // -----------------------------
                 
                 const searchData = await searchRes.json();
                 const searchResults = searchData.data || searchData.result || searchData;
@@ -193,6 +205,8 @@
                 updateLog(`[2] Request detail anime...`);
                 
                 const detailRes = await fetch(`/api/proxy?url=${encodeURIComponent(rawDetailUrl)}`);
+                if (!detailRes.ok) throw new Error(`HTTP Status ${detailRes.status} saat ambil detail.`);
+                
                 const detailData = await detailRes.json();
                 const animeDetail = detailData.data || detailData.result || detailData;
                 
@@ -214,6 +228,8 @@
                 updateLog(`[3] Request link streaming...`);
                 
                 const streamRes = await fetch(`/api/proxy?url=${encodeURIComponent(rawStreamUrl)}`);
+                if (!streamRes.ok) throw new Error(`HTTP Status ${streamRes.status} saat ambil video.`);
+                
                 const streamData = await streamRes.json();
                 const streamObj = streamData.data || streamData.result || streamData;
 
