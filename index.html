@@ -173,19 +173,16 @@
             document.getElementById('player-title').innerText = `${jikanTitle} - Episode ${episodeNumber}`;
             
             try {
-                const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 2).join(' ');
+                // Bersihkan judul dari karakter aneh dan ambil 2 kata pertama
+                const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 2).join(' ').toLowerCase();
                 
+                // TAHAP 1: PENCARIAN (Berdasarkan image_11.png -> /anime/search/:keyword)
                 statusText.innerText = "Mencari data anime...";
-                const rawSearchUrl = `${BASE_API}/anime/otakudesu/search?q=${encodeURIComponent(cleanTitle)}`;
-                updateLog(`[1] Request ke Otakudesu...`);
+                const searchEndpoint = `${BASE_API}/anime/search/${encodeURIComponent(cleanTitle)}`;
+                updateLog(`[1] Request: /anime/search/${cleanTitle}`);
                 
-                // Panggil Vercel Proxy
-                const searchRes = await fetch(`/api/proxy?url=${encodeURIComponent(rawSearchUrl)}`);
-                if (!searchRes.ok) {
-                    let errorDetail = "Bukan JSON";
-                    try { const errJson = await searchRes.json(); errorDetail = errJson.error || "Tanpa pesan"; } catch(e) {}
-                    throw new Error(`HTTP ${searchRes.status} | Detail: ${errorDetail}`);
-                }
+                const searchRes = await fetch(`/api/proxy?url=${encodeURIComponent(searchEndpoint)}`);
+                if (!searchRes.ok) throw new Error(`Pencarian gagal: HTTP ${searchRes.status}`);
                 
                 const searchData = await searchRes.json();
                 const searchResults = searchData.data || searchData.result || searchData;
@@ -194,50 +191,55 @@
                     throw new Error(`Data anime "${cleanTitle}" tidak ditemukan.`);
                 }
 
-                const animeUrl = searchResults[0].url;
-                updateLog(`[1] Berhasil. URL Anime didapat.`);
+                // Ambil slug/endpoint dari hasil pertama
+                const animeIdOrSlug = searchResults[0].slug || searchResults[0].endpoint || searchResults[0].id;
+                if (!animeIdOrSlug) throw new Error("Format data pencarian tidak dikenali.");
+                updateLog(`[1] Berhasil. Slug: ${animeIdOrSlug}`);
 
-                // AMBIL LIST EPISODE
+                // TAHAP 2: DETAIL ANIME (Berdasarkan image_9.png -> /anime/anime/:slug)
                 statusText.innerText = `Mengambil data episode ${episodeNumber}...`;
-                const rawDetailUrl = `${BASE_API}/anime/otakudesu/detail?url=${encodeURIComponent(animeUrl)}`;
-                updateLog(`[2] Request detail anime...`);
+                const detailEndpoint = `${BASE_API}/anime/anime/${animeIdOrSlug}`;
+                updateLog(`[2] Request: /anime/anime/${animeIdOrSlug}`);
                 
-                const detailRes = await fetch(`/api/proxy?url=${encodeURIComponent(rawDetailUrl)}`);
-                if (!detailRes.ok) throw new Error(`HTTP ${detailRes.status} saat ambil detail.`);
+                const detailRes = await fetch(`/api/proxy?url=${encodeURIComponent(detailEndpoint)}`);
+                if (!detailRes.ok) throw new Error(`Gagal ambil detail: HTTP ${detailRes.status}`);
                 
                 const detailData = await detailRes.json();
                 const animeDetail = detailData.data || detailData.result || detailData;
-                const episodeList = animeDetail.episode_list || animeDetail.episodes || [];
                 
+                const episodeList = animeDetail.episode_list || animeDetail.episodes || [];
+                if (episodeList.length === 0) throw new Error("Daftar episode kosong.");
+                
+                // Cari episode yang sesuai angkanya
                 const targetEps = episodeList.find(eps => {
-                    const title = (eps.title || eps.episode || "").toLowerCase();
+                    const title = (eps.title || eps.episode || eps.slug || "").toLowerCase();
                     const match = title.match(/\b0*(\d+)\b/);
                     return match && parseInt(match[1]) === parseInt(episodeNumber);
                 });
 
-                if (!targetEps) throw new Error(`Episode ${episodeNumber} tidak ditemukan.`);
-                const epsUrl = targetEps.url;
-                updateLog(`[2] Berhasil. URL episode ditemukan.`);
+                if (!targetEps) throw new Error(`Episode ${episodeNumber} belum tersedia.`);
+                const epsSlug = targetEps.slug || targetEps.endpoint || targetEps.id;
+                updateLog(`[2] Berhasil. Slug Eps: ${epsSlug}`);
 
-                // AMBIL LINK STREAMING
+                // TAHAP 3: LINK STREAMING (Berdasarkan image_11.png -> /anime/episode/:slug)
                 statusText.innerText = "Menyiapkan pemutar video...";
-                const rawStreamUrl = `${BASE_API}/anime/otakudesu/episode?url=${encodeURIComponent(epsUrl)}`;
-                updateLog(`[3] Request link streaming...`);
+                const streamEndpoint = `${BASE_API}/anime/episode/${epsSlug}`;
+                updateLog(`[3] Request: /anime/episode/${epsSlug}`);
                 
-                const streamRes = await fetch(`/api/proxy?url=${encodeURIComponent(rawStreamUrl)}`);
-                if (!streamRes.ok) throw new Error(`HTTP ${streamRes.status} saat ambil video.`);
+                const streamRes = await fetch(`/api/proxy?url=${encodeURIComponent(streamEndpoint)}`);
+                if (!streamRes.ok) throw new Error(`Gagal ambil stream: HTTP ${streamRes.status}`);
                 
                 const streamData = await streamRes.json();
                 const streamObj = streamData.data || streamData.result || streamData;
 
-                let embedUrl = streamObj.iframe_url || streamObj.embed || 
-                               (streamObj.servers && streamObj.servers.length > 0 ? (streamObj.servers[0].url || streamObj.servers[0].iframe) : null) || 
-                               streamObj.url || streamObj.link;
+                // Mencari URL Iframe/Embed di dalam response JSON
+                let embedUrl = streamObj.stream_url || streamObj.iframe_url || streamObj.embed || 
+                               (streamObj.server && streamObj.server.length > 0 ? streamObj.server[0].url : null);
 
                 if (!embedUrl) throw new Error("Tidak ada link video dari server.");
                 updateLog(`[3] Selesai. Merender Iframe.`);
 
-                // TAMPILKAN VIDEO
+                // TAHAP 4: TAMPILKAN VIDEO
                 setTimeout(() => {
                     loadingUI.classList.add('hidden');
                     iframeEl.classList.remove('hidden');
@@ -246,6 +248,7 @@
 
             } catch (error) {
                 console.error(error);
+                document.querySelector('.loader').classList.add('hidden');
                 statusText.innerText = "❌ Terjadi Kesalahan";
                 statusText.classList.replace("text-blue-200", "text-red-400");
                 updateLog(`ERROR: ${error.message}`, true);
