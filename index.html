@@ -152,7 +152,7 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        async function playVideoBridge(jikanTitle, episodeNumber) {
+                async function playVideoBridge(jikanTitle, episodeNumber) {
             showPage('page-player');
             const iframeEl = document.getElementById('iframe-element');
             const loadingUI = document.getElementById('video-loading');
@@ -161,80 +161,87 @@
             iframeEl.classList.add('hidden');
             iframeEl.src = '';
             loadingUI.classList.remove('hidden');
-            document.getElementById('video-logs').innerHTML = '> Memulai pencarian Otakudesu...';
+            document.getElementById('video-logs').innerHTML = '> Memulai pencarian Otakudesu via Proxy...';
             document.getElementById('player-title').innerText = `${jikanTitle} - Episode ${episodeNumber}`;
             
             try {
-                // TAHAP 1: SEARCH (OTAKUDESU)
-                // Memotong judul 2 kata pertama agar pencarian lebih akurat
+                // Potong judul jadi 2 kata agar pencarian di Otakudesu lebih akurat
                 const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 2).join(' ');
-                statusText.innerText = "Mencari anime di Otakudesu...";
-                updateLog(`[1] Mencari: GET /anime/otakudesu/search?q=${cleanTitle}`);
+                statusText.innerText = "Mencari anime (Tembus CORS)...";
+                
+                // URL Asli yang mau kita tembak
+                const rawSearchUrl = `${API_SANKANIME}/anime/otakudesu/search?q=${encodeURIComponent(cleanTitle)}`;
+                // Kita bungkus pakai AllOrigins Proxy agar lolos dari 'Load failed'
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rawSearchUrl)}`;
+                
+                updateLog(`[1] Request via Proxy ke Otakudesu...`);
 
-                const searchRes = await fetch(`${API_SANKANIME}/anime/otakudesu/search?q=${encodeURIComponent(cleanTitle)}`);
+                const searchRes = await fetch(proxyUrl);
+                if (!searchRes.ok) throw new Error("Gagal terhubung ke server proxy/API.");
+                
                 const searchData = await searchRes.json();
                 const searchResults = searchData.data || searchData.result || searchData;
 
-                // SOLUSI ERROR FRIEREN: Pengecekan data kosong
                 if (!searchResults || !Array.isArray(searchResults) || searchResults.length === 0) {
-                    throw new Error(`Maaf, anime "${cleanTitle}" belum tersedia di Otakudesu.`);
+                    throw new Error(`Anime "${cleanTitle}" tidak ditemukan di Otakudesu.`);
                 }
 
-                const animeUrl = searchResults[0].url; // Berdasarkan dokumentasi DeepSeek
-                updateLog(`[1] Berhasil! URL Anime: ${animeUrl.substring(0, 30)}...`);
+                const animeUrl = searchResults[0].url;
+                updateLog(`[1] Sukses! Menemukan URL Anime.`);
 
-                // TAHAP 2: DETAIL (AMBIL LIST EPISODE)
-                statusText.innerText = `Mengambil data episode ${episodeNumber}...`;
-                updateLog(`[2] Request: GET /anime/otakudesu/detail?url=...`);
+                // TAHAP 2: AMBIL DETAIL EPISODE (Bungkus Proxy Lagi)
+                statusText.innerText = `Mengambil daftar episode...`;
+                const rawDetailUrl = `${API_SANKANIME}/anime/otakudesu/detail?url=${encodeURIComponent(animeUrl)}`;
+                const proxyDetailUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rawDetailUrl)}`;
                 
-                const detailRes = await fetch(`${API_SANKANIME}/anime/otakudesu/detail?url=${encodeURIComponent(animeUrl)}`);
+                updateLog(`[2] Menarik list episode...`);
+                
+                const detailRes = await fetch(proxyDetailUrl);
                 const detailData = await detailRes.json();
                 const animeDetail = detailData.data || detailData.result || detailData;
                 
                 const episodeList = animeDetail.episode_list || animeDetail.episodes || [];
                 
-                // Cari episode yang angkanya cocok
+                // Cari angka episode yang cocok
                 const targetEps = episodeList.find(eps => {
                     const title = (eps.title || eps.episode || "").toLowerCase();
                     const match = title.match(/\b0*(\d+)\b/);
                     return match && parseInt(match[1]) === parseInt(episodeNumber);
                 });
 
-                if (!targetEps) throw new Error(`Episode ${episodeNumber} tidak ditemukan/belum rilis di Otakudesu.`);
+                if (!targetEps) throw new Error(`Episode ${episodeNumber} belum tersedia.`);
                 const epsUrl = targetEps.url;
-                updateLog(`[2] Berhasil! URL Episode ketemu.`);
+                updateLog(`[2] Sukses! Episode ditemukan.`);
 
-                // TAHAP 3: EKSTRAK LINK STREAM (IFRAME)
-                statusText.innerText = "Mengekstrak tautan Iframe Video...";
-                updateLog(`[3] Request: GET /anime/otakudesu/episode?url=...`);
+                // TAHAP 3: AMBIL EMBED VIDEO (Bungkus Proxy Lagi)
+                statusText.innerText = "Mengekstrak player video...";
+                const rawStreamUrl = `${API_SANKANIME}/anime/otakudesu/episode?url=${encodeURIComponent(epsUrl)}`;
+                const proxyStreamUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rawStreamUrl)}`;
                 
-                const streamRes = await fetch(`${API_SANKANIME}/anime/otakudesu/episode?url=${encodeURIComponent(epsUrl)}`);
+                updateLog(`[3] Menembak link stream...`);
+                
+                const streamRes = await fetch(proxyStreamUrl);
                 const streamData = await streamRes.json();
                 const streamObj = streamData.data || streamData.result || streamData;
 
-                // Biasanya API scraper Otakudesu me-return array servers atau iframe_url
+                // Ekstrak URL Iframe
                 let embedUrl = '';
-                
-                // Skenario A: Langsung ada url embed/iframe
                 if (streamObj.iframe_url) embedUrl = streamObj.iframe_url;
                 else if (streamObj.embed) embedUrl = streamObj.embed;
-                // Skenario B: Tersedia di dalam Array Server
                 else if (streamObj.servers && Array.isArray(streamObj.servers) && streamObj.servers.length > 0) {
                     embedUrl = streamObj.servers[0].url || streamObj.servers[0].iframe; 
-                } 
-                // Fallback (kalau struktur beda)
-                else {
+                } else {
                     embedUrl = streamObj.url || streamObj.link;
                 }
 
-                if (!embedUrl || !embedUrl.includes('http')) throw new Error("Link Embed/Iframe kosong dari Sankanime.");
-                updateLog(`[3] Iframe didapat! Menyuntikkan video...`);
+                if (!embedUrl || !embedUrl.includes('http')) throw new Error("Server tidak mengembalikan link video.");
+                updateLog(`[3] Sukses mendapatkan Iframe.`);
 
-                // TAHAP 4: TAMPILKAN VIDEO DI IFRAME (Bypass CORS)
+                // TAHAP 4: TAMPILKAN KE LAYAR
                 setTimeout(() => {
                     loadingUI.classList.add('hidden');
                     iframeEl.classList.remove('hidden');
-                    iframeEl.src = embedUrl; // Langsung tembak ke src iframe
+                    iframeEl.src = embedUrl; 
                 }, 800);
 
             } catch (error) {
