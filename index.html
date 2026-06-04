@@ -3,105 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NimeStream - Hybrid (Jikan + Sankanime)</title>
+    <title>NimeStream - Jikan x Sankanime (Otakudesu)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
     <style>
         html { scroll-behavior: smooth; }
-        
-        .fade-in {
-            animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            opacity: 0;
-            transform: translateY(15px);
-        }
-        @keyframes fadeIn {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .anime-card { transition: all 0.3s ease; }
-        .anime-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 15px 30px -10px rgba(59, 130, 246, 0.5);
-            border-color: #3b82f6;
-        }
-
-        .glass-nav {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
+        .fade-in { animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; transform: translateY(15px); }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+        .anime-card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px -10px rgba(59, 130, 246, 0.5); border-color: #3b82f6; }
+        .glass-nav { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
-        
-        .loader {
-            border-top-color: #3b82f6;
-            animation: spinner 0.8s linear infinite;
-        }
-        @keyframes spinner {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        .loader { border-top-color: #3b82f6; animation: spinner 0.8s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-200 font-sans min-h-screen overflow-x-hidden">
 
-    <!-- NAVBAR -->
     <nav class="fixed top-0 w-full z-50 glass-nav transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 cursor-pointer" onclick="goHome()">
                 NimeStream
             </h1>
-            <span class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700 hidden md:inline-block">UI by Jikan | Player by Sankanime</span>
+            <span class="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700 hidden md:inline-block">UI: Jikan | Engine: Otakudesu</span>
         </div>
     </nav>
 
     <main class="pt-24 pb-12 max-w-7xl mx-auto px-4">
         
-        <!-- HALAMAN UTAMA (JIKAN API) -->
         <div id="page-home" class="fade-in block">
-            <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-3">🔥 Trending di MyAnimeList</h2>
+            <h2 class="text-2xl font-bold mb-6 border-l-4 border-blue-500 pl-3">🔥 Trending Anime</h2>
             <div id="anime-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
-                <div class="flex justify-center items-center h-64 w-full col-span-full">
-                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-700 h-12 w-12"></div>
-                </div>
+                <div class="flex justify-center items-center h-64 w-full col-span-full"><div class="loader ease-linear rounded-full border-4 border-t-4 border-slate-700 h-12 w-12"></div></div>
             </div>
         </div>
 
-        <!-- HALAMAN DETAIL (JIKAN API) -->
         <div id="page-detail" class="fade-in hidden">
-            <button onclick="goHome()" class="mb-6 flex items-center text-blue-400 hover:text-blue-300 transition-colors font-semibold bg-slate-800 px-4 py-2 rounded-lg w-max">
-                ← Kembali ke Beranda
-            </button>
+            <button onclick="goHome()" class="mb-6 flex items-center text-blue-400 hover:text-blue-300 transition-colors font-semibold bg-slate-800 px-4 py-2 rounded-lg w-max">← Kembali ke Beranda</button>
             <div id="detail-content"></div>
         </div>
 
-        <!-- HALAMAN PEMUTAR VIDEO (SANKANIME API) -->
         <div id="page-player" class="fade-in hidden">
-            <button onclick="backToDetail()" class="mb-6 flex items-center text-blue-400 hover:text-blue-300 transition-colors font-semibold bg-slate-800 px-4 py-2 rounded-lg w-max">
-                ← Kembali ke Detail
-            </button>
+            <button onclick="backToDetail()" class="mb-6 flex items-center text-blue-400 hover:text-blue-300 transition-colors font-semibold bg-slate-800 px-4 py-2 rounded-lg w-max">← Kembali ke Detail</button>
             
             <div class="max-w-5xl mx-auto bg-slate-800 rounded-2xl overflow-hidden shadow-2xl p-4 border border-slate-700">
                 <h2 id="player-title" class="text-lg md:text-xl font-bold mb-4 text-center text-cyan-50">Menyiapkan Video...</h2>
                 
                 <div class="aspect-video bg-black relative rounded-lg overflow-hidden flex justify-center items-center shadow-inner">
-                    <!-- Loading UI Video -->
                     <div id="video-loading" class="absolute flex flex-col items-center z-20 bg-slate-900/90 px-6 py-6 rounded-xl text-center w-full max-w-md">
                         <div class="loader ease-linear rounded-full border-4 border-t-4 border-blue-500 h-10 w-10 mb-4 mx-auto"></div>
-                        <span id="video-status" class="text-sm font-semibold text-blue-200 animate-pulse">Memulai sinkronisasi data Sankanime...</span>
-                        <div id="video-logs" class="mt-3 text-xs text-slate-400 font-mono text-left bg-black/50 p-2 rounded w-full h-20 overflow-y-auto">
-                            > Inisialisasi Player...
-                        </div>
+                        <span id="video-status" class="text-sm font-semibold text-blue-200 animate-pulse">Memulai sinkronisasi ke Otakudesu...</span>
+                        <div id="video-logs" class="mt-3 text-xs text-slate-400 font-mono text-left bg-black/50 p-2 rounded w-full h-24 overflow-y-auto">> Inisialisasi Player...</div>
                     </div>
                     
-                    <!-- HTML5 Video Player -->
-                    <video id="video-element" controls class="w-full h-full hidden z-10 bg-black"></video>
+                    <iframe id="iframe-element" allowfullscreen class="w-full h-full hidden z-10 bg-black" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
                 </div>
             </div>
         </div>
@@ -114,42 +71,31 @@
         // ====================================================================
         const API_JIKAN = 'https://api.jikan.moe/v4';
         
-        // Ganti dengan Base URL Rest API Sankanime (SankaVollereii) terbaru milikmu/publik
-        const API_SANKANIME = 'https://api-sankanime.vercel.app'; 
-
-        let hlsPlayer = null;
+        // PASTIIN INI BASE URL API SANKANIME YANG AKTIF. Jangan ada garis miring (/) di akhir.
+        const API_SANKANIME = 'https://api.sankavollerei.com'; // <--- Ganti sesuai URL API Vercel/Render Sankanime
 
         // --- Navigasi ---
         function showPage(pageId) {
-            ['page-home', 'page-detail', 'page-player'].forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
+            ['page-home', 'page-detail', 'page-player'].forEach(id => document.getElementById(id).classList.add('hidden'));
             const page = document.getElementById(pageId);
-            page.classList.remove('hidden');
-            page.classList.remove('fade-in');
-            void page.offsetWidth; 
-            page.classList.add('fade-in');
+            page.classList.remove('hidden'); page.classList.remove('fade-in'); void page.offsetWidth; page.classList.add('fade-in');
             window.scrollTo(0, 0);
         }
 
         function stopVideo() {
-            if(hlsPlayer) { hlsPlayer.destroy(); hlsPlayer = null; }
-            const videoEl = document.getElementById('video-element');
-            videoEl.pause();
-            videoEl.removeAttribute('src');
-            videoEl.load();
+            const iframe = document.getElementById('iframe-element');
+            iframe.src = ''; // Hentikan video saat kembali
         }
 
         function goHome() { stopVideo(); showPage('page-home'); }
         function backToDetail() { stopVideo(); showPage('page-detail'); }
 
-        // --- TAHAP 1: MEMUAT HOME MENGGUNAKAN JIKAN API (SUPER CEPAT) ---
+        // --- 1. HOME (JIKAN) ---
         async function loadHome() {
             const container = document.getElementById('anime-list');
             try {
                 const res = await fetch(`${API_JIKAN}/top/anime?limit=15`);
                 const data = await res.json();
-                
                 container.innerHTML = ''; 
                 data.data.forEach(anime => {
                     container.innerHTML += `
@@ -157,19 +103,15 @@
                             <div class="relative h-56 md:h-72">
                                 <img src="${anime.images.jpg.large_image_url}" loading="lazy" class="w-full h-full object-cover">
                                 <div class="absolute bottom-0 w-full bg-gradient-to-t from-slate-900 via-slate-900/90 to-transparent p-3 pt-12">
-                                    <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-md mb-2 inline-block">⭐ ${anime.score || 'N/A'}</span>
                                     <h3 class="text-sm font-bold text-white truncate drop-shadow-md">${anime.title}</h3>
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
-            } catch (error) {
-                container.innerHTML = `<p class="col-span-full text-center text-red-400 font-bold">Gagal memuat Jikan API.</p>`;
-            }
+            } catch (error) { container.innerHTML = `<p class="col-span-full text-center text-red-400">Gagal memuat Jikan API.</p>`; }
         }
 
-        // --- TAHAP 2: MEMUAT DETAIL MENGGUNAKAN JIKAN API ---
+        // --- 2. DETAIL (JIKAN) ---
         async function loadDetail(id) {
             showPage('page-detail');
             const container = document.getElementById('detail-content');
@@ -180,138 +122,127 @@
                 const data = await res.json();
                 const anime = data.data;
 
-                // Asumsi jumlah episode. Jika status on-going dan episode null, asumsikan 12.
                 const totalEpisodes = anime.episodes || 12; 
                 let episodesHtml = '';
-                
                 for(let i = 1; i <= totalEpisodes; i++) {
                     episodesHtml += `
                         <button onclick="playVideoBridge('${anime.title.replace(/'/g, "\\'")}', ${i})" 
-                                class="bg-slate-700 hover:bg-blue-600 transition-all duration-200 py-2.5 px-2 rounded-lg font-semibold shadow-md text-sm border border-slate-600 hover:border-blue-400">
+                                class="bg-slate-700 hover:bg-blue-600 transition-all duration-200 py-2 px-1 rounded-lg font-semibold shadow-md text-sm border border-slate-600 hover:border-blue-400">
                             Eps ${i}
                         </button>`;
                 }
 
                 container.innerHTML = `
                     <div class="flex flex-col md:flex-row gap-8 bg-slate-800 p-6 md:p-8 rounded-2xl shadow-xl border border-slate-700">
-                        <div class="shrink-0">
-                            <img src="${anime.images.jpg.large_image_url}" class="w-full md:w-64 h-auto rounded-xl shadow-lg object-cover border border-slate-600">
-                        </div>
+                        <img src="${anime.images.jpg.large_image_url}" class="w-full md:w-64 h-auto rounded-xl shadow-lg object-cover border border-slate-600">
                         <div class="flex-1 min-w-0">
                             <h1 class="text-2xl md:text-4xl font-black mb-4 text-cyan-50">${anime.title}</h1>
-                            <div class="flex flex-wrap gap-2 mb-6">
-                                ${anime.genres.map(g => `<span class="bg-blue-900/50 text-blue-200 border border-blue-700/50 text-xs px-3 py-1 rounded-full">${g.name}</span>`).join('')}
-                            </div>
-                            <p class="text-slate-300 text-sm md:text-base leading-relaxed mb-8 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">${anime.synopsis}</p>
-                            
+                            <p class="text-slate-300 text-sm md:text-base leading-relaxed mb-6 bg-slate-900/50 p-4 rounded-xl">${anime.synopsis}</p>
                             <h3 class="text-xl font-bold mb-4 border-l-4 border-blue-500 pl-3">Daftar Episode</h3>
-                            <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 max-h-64 overflow-y-auto pr-2 pb-2 custom-scrollbar">
-                                ${episodesHtml}
-                            </div>
+                            <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">${episodesHtml}</div>
                         </div>
-                    </div>
-                `;
-            } catch (error) {
-                container.innerHTML = `<p class="text-red-400 text-center py-10 font-bold">Gagal memuat detail.</p>`;
-            }
+                    </div>`;
+            } catch (error) { container.innerHTML = `<p class="text-red-400 text-center py-10">Gagal memuat detail.</p>`; }
         }
 
-        // --- TAHAP 3: BRIDGE (JEMBATAN) PENCARIAN DARI JIKAN KE SANKANIME ---
-        function updateLog(msg) {
+        // --- 3. BRIDGE JIKAN -> SANKANIME (OTAKUDESU) ---
+        function updateLog(msg, isError = false) {
             const logBox = document.getElementById('video-logs');
-            logBox.innerHTML += `<br>> ${msg}`;
+            logBox.innerHTML += `<br>> <span style="color:${isError ? '#f87171' : '#94a3b8'}">${msg}</span>`;
             logBox.scrollTop = logBox.scrollHeight;
         }
 
         async function playVideoBridge(jikanTitle, episodeNumber) {
             showPage('page-player');
-            const videoEl = document.getElementById('video-element');
+            const iframeEl = document.getElementById('iframe-element');
             const loadingUI = document.getElementById('video-loading');
             const statusText = document.getElementById('video-status');
             
-            videoEl.classList.add('hidden');
+            iframeEl.classList.add('hidden');
+            iframeEl.src = '';
             loadingUI.classList.remove('hidden');
-            document.getElementById('video-logs').innerHTML = '> Memulai pencarian...';
+            document.getElementById('video-logs').innerHTML = '> Memulai pencarian Otakudesu...';
             document.getElementById('player-title').innerText = `${jikanTitle} - Episode ${episodeNumber}`;
             
             try {
-                // Langkah 1: Bersihkan judul untuk memaksimalkan hasil search di Sankanime Sub Indo
-                // Biasanya memotong hingga 2 kata pertama sudah cukup akurat.
-                const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 3).join(' ');
-                statusText.innerText = "Mencari anime di database Indonesia...";
-                updateLog(`Mencari keyword: "${cleanTitle}"`);
+                // TAHAP 1: SEARCH (OTAKUDESU)
+                // Memotong judul 2 kata pertama agar pencarian lebih akurat
+                const cleanTitle = jikanTitle.replace(/[^a-zA-Z0-9\s]/g, '').split(' ').slice(0, 2).join(' ');
+                statusText.innerText = "Mencari anime di Otakudesu...";
+                updateLog(`[1] Mencari: GET /anime/otakudesu/search?q=${cleanTitle}`);
 
-                const searchRes = await fetch(`${API_SANKANIME}/search/${encodeURIComponent(cleanTitle)}`);
+                const searchRes = await fetch(`${API_SANKANIME}/anime/otakudesu/search?q=${encodeURIComponent(cleanTitle)}`);
                 const searchData = await searchRes.json();
                 const searchResults = searchData.data || searchData.result || searchData;
 
-                if (!searchResults || searchResults.length === 0) {
-                    throw new Error("Judul tidak ditemukan di Sankanime.");
+                // SOLUSI ERROR FRIEREN: Pengecekan data kosong
+                if (!searchResults || !Array.isArray(searchResults) || searchResults.length === 0) {
+                    throw new Error(`Maaf, anime "${cleanTitle}" belum tersedia di Otakudesu.`);
                 }
 
-                // Ambil hasil pencarian pertama (paling relevan)
-                const sankanimeEndpoint = searchResults[0].endpoint || searchResults[0].id;
-                updateLog(`Ketemu ID Sankanime: ${sankanimeEndpoint}`);
+                const animeUrl = searchResults[0].url; // Berdasarkan dokumentasi DeepSeek
+                updateLog(`[1] Berhasil! URL Anime: ${animeUrl.substring(0, 30)}...`);
 
-                // Langkah 2: Ambil daftar episode dari anime tersebut di Sankanime
-                statusText.innerText = `Menarik episode ${episodeNumber}...`;
-                const detailRes = await fetch(`${API_SANKANIME}/anime/${sankanimeEndpoint}`);
+                // TAHAP 2: DETAIL (AMBIL LIST EPISODE)
+                statusText.innerText = `Mengambil data episode ${episodeNumber}...`;
+                updateLog(`[2] Request: GET /anime/otakudesu/detail?url=...`);
+                
+                const detailRes = await fetch(`${API_SANKANIME}/anime/otakudesu/detail?url=${encodeURIComponent(animeUrl)}`);
                 const detailData = await detailRes.json();
-                const animeData = detailData.data || detailData.result || detailData;
+                const animeDetail = detailData.data || detailData.result || detailData;
                 
-                const episodeList = animeData.episode_list || animeData.episodes || [];
+                const episodeList = animeDetail.episode_list || animeDetail.episodes || [];
                 
-                // Cari endpoint episode yang sesuai (Contoh: "episode 1" dari Sankanime array)
-                // Karena array Sankanime biasanya berurutan terbalik (eps terbaru di atas), kita harus memfilter:
+                // Cari episode yang angkanya cocok
                 const targetEps = episodeList.find(eps => {
-                    const title = eps.title || eps.episode || "";
-                    // Regex mencari angka episode (misal dari teks "Boruto Episode 12 Sub Indo")
+                    const title = (eps.title || eps.episode || "").toLowerCase();
                     const match = title.match(/\b0*(\d+)\b/);
                     return match && parseInt(match[1]) === parseInt(episodeNumber);
                 });
 
-                if (!targetEps) {
-                    throw new Error(`Episode ${episodeNumber} belum dirilis / tidak ada di database Sankanime.`);
-                }
+                if (!targetEps) throw new Error(`Episode ${episodeNumber} tidak ditemukan/belum rilis di Otakudesu.`);
+                const epsUrl = targetEps.url;
+                updateLog(`[2] Berhasil! URL Episode ketemu.`);
 
-                const epsEndpoint = targetEps.endpoint || targetEps.id;
-                updateLog(`ID Episode Ketemu: ${epsEndpoint}`);
-
-                // Langkah 3: Ekstrak link Stream/Video dari Sankanime
-                statusText.innerText = "Mengekstrak tautan video m3u8/mp4...";
-                const streamRes = await fetch(`${API_SANKANIME}/episode/${epsEndpoint}`);
+                // TAHAP 3: EKSTRAK LINK STREAM (IFRAME)
+                statusText.innerText = "Mengekstrak tautan Iframe Video...";
+                updateLog(`[3] Request: GET /anime/otakudesu/episode?url=...`);
+                
+                const streamRes = await fetch(`${API_SANKANIME}/anime/otakudesu/episode?url=${encodeURIComponent(epsUrl)}`);
                 const streamData = await streamRes.json();
                 const streamObj = streamData.data || streamData.result || streamData;
 
-                const streamUrl = streamObj.stream_url || streamObj.link_stream || streamObj.url || streamObj.m3u8;
+                // Biasanya API scraper Otakudesu me-return array servers atau iframe_url
+                let embedUrl = '';
+                
+                // Skenario A: Langsung ada url embed/iframe
+                if (streamObj.iframe_url) embedUrl = streamObj.iframe_url;
+                else if (streamObj.embed) embedUrl = streamObj.embed;
+                // Skenario B: Tersedia di dalam Array Server
+                else if (streamObj.servers && Array.isArray(streamObj.servers) && streamObj.servers.length > 0) {
+                    embedUrl = streamObj.servers[0].url || streamObj.servers[0].iframe; 
+                } 
+                // Fallback (kalau struktur beda)
+                else {
+                    embedUrl = streamObj.url || streamObj.link;
+                }
 
-                if (!streamUrl) throw new Error("Link stream tidak ditemukan atau server memblokir.");
-                updateLog(`Sukses ekstrak stream URL! Memutar video...`);
+                if (!embedUrl || !embedUrl.includes('http')) throw new Error("Link Embed/Iframe kosong dari Sankanime.");
+                updateLog(`[3] Iframe didapat! Menyuntikkan video...`);
 
-                // Langkah 4: Putar Video
+                // TAHAP 4: TAMPILKAN VIDEO DI IFRAME (Bypass CORS)
                 setTimeout(() => {
                     loadingUI.classList.add('hidden');
-                    videoEl.classList.remove('hidden');
-                    
-                    if (streamUrl.includes('.m3u8') && Hls.isSupported()) {
-                        hlsPlayer = new Hls({ capLevelToPlayerSize: true });
-                        hlsPlayer.loadSource(streamUrl);
-                        hlsPlayer.attachMedia(videoEl);
-                        hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
-                    } else if (videoEl.canPlayType('application/vnd.apple.mpegurl') || streamUrl.includes('.mp4')) {
-                        videoEl.src = streamUrl;
-                        videoEl.play();
-                    } else {
-                        throw new Error("Format video tidak didukung browser.");
-                    }
-                }, 800); // Delay sedikit agar user melihat log sukses
+                    iframeEl.classList.remove('hidden');
+                    iframeEl.src = embedUrl; // Langsung tembak ke src iframe
+                }, 800);
 
             } catch (error) {
                 console.error(error);
                 document.querySelector('.loader').classList.add('hidden');
-                statusText.innerText = "❌ Terjadi Kesalahan";
+                statusText.innerText = "❌ Gagal Sinkronisasi";
                 statusText.classList.replace("text-blue-200", "text-red-400");
-                updateLog(`<span style="color:#f87171;">ERROR: ${error.message}</span>`);
+                updateLog(`ERROR: ${error.message}`, true);
             }
         }
 
