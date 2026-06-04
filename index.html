@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>StreamAnime Lite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+
+    <nav class="p-5 border-b border-gray-700 bg-gray-800">
+        <h1 class="text-2xl font-bold cursor-pointer" onclick="location.reload()">StreamAnime</h1>
+    </nav>
+
+    <main id="app" class="p-5">
+        <div id="content">
+            <h2 class="text-xl mb-4">Trending</h2>
+            <div id="trending" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+            
+            <h2 class="text-xl mt-8 mb-4">Rekomendasi</h2>
+            <div id="random" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+        </div>
+    </main>
+
+    <script>
+        const API_JIKAN = 'https://api.jikan.moe/v4';
+        const API_STREAM = 'https://api.anify.tv'; // API untuk streaming
+
+        async function init() {
+            const resTrending = await fetch(`${API_JIKAN}/top/anime?limit=4`).then(r => r.json());
+            const resRandom = await fetch(`${API_JIKAN}/recommendations/anime`).then(r => r.json());
+
+            renderList('trending', resTrending.data);
+            renderList('random', resRandom.data.slice(0, 4));
+        }
+
+        function renderList(id, data) {
+            const container = document.getElementById(id);
+            data.forEach(item => {
+                const anime = item.entry ? item.entry[0] : item;
+                container.innerHTML += `
+                    <div class="cursor-pointer" onclick="showDetail('${anime.mal_id}')">
+                        <img src="${anime.images.jpg.image_url}" class="rounded w-full h-60 object-cover">
+                        <p class="mt-2 text-sm truncate">${anime.title}</p>
+                    </div>
+                `;
+            });
+        }
+
+        async function showDetail(id) {
+            const res = await fetch(`${API_JIKAN}/anime/${id}/full`).then(r => r.json());
+            const anime = res.data;
+            document.getElementById('content').innerHTML = `
+                <div class="flex flex-col md:flex-row gap-6">
+                    <img src="${anime.images.jpg.large_image_url}" class="w-64 rounded">
+                    <div>
+                        <h1 class="text-3xl font-bold">${anime.title}</h1>
+                        <p class="mt-2">${anime.synopsis}</p>
+                        <div id="episodes" class="mt-4 grid grid-cols-6 gap-2"></div>
+                    </div>
+                </div>
+            `;
+
+            for(let i = 1; i <= anime.episodes; i++) {
+                document.getElementById('episodes').innerHTML += `
+                    <button onclick="watch('${anime.title.replace(/\s+/g, '-')}', ${i})" class="bg-blue-600 p-2 rounded text-xs">${i}</button>
+                `;
+            }
+        }
+
+        async function watch(title, ep) {
+            // Mengambil source dari Anify
+            document.getElementById('content').innerHTML = `
+                <h2 class="text-xl mb-2">Menonton ${title} - Ep ${ep}</h2>
+                <div class="aspect-video bg-black">
+                    <iframe src="https://player.anify.tv/embed?id=${title}&episode=${ep}" class="w-full h-full" allowfullscreen></iframe>
+                </div>
+                <button onclick="location.reload()" class="mt-4 bg-red-600 px-4 py-2 rounded">Kembali</button>
+            `;
+        }
+
+        init();
+    </script>
+</body>
+</html>
